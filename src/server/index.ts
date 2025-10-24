@@ -1,6 +1,6 @@
 import amqp from "amqplib";
-import {PauseKey, ExchangePerilDirect} from "../internal/routing/routing.js";
-import {publishJson} from "../internal/pubsub/index.js";
+import {PauseKey, ExchangePerilDirect, ExchangePerilTopic, GameLogSlug} from "../internal/routing/routing.js";
+import {declareAndBind, publishJson} from "../internal/pubsub/index.js";
 import {getInput, printServerHelp} from "../internal/gamelogic/gamelogic.js";
 
 async function main() {
@@ -9,6 +9,7 @@ async function main() {
     const connection = await amqp.connect(connection_string);
     console.log("Connected to RabbitMQ");
     const confirmChannel = await connection.createConfirmChannel();
+    const [gameLogChannel, gameLogQueue] = await declareAndBind(connection, ExchangePerilTopic, GameLogSlug, GameLogSlug + '.*', 'durable');
 
     process.on("SIGINT", async () => {
         try {
