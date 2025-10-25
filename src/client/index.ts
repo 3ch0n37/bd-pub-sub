@@ -1,11 +1,11 @@
 import amqp from "amqplib";
 import {clientWelcome, commandStatus, getInput, printClientHelp, printQuit} from "../internal/gamelogic/gamelogic.js";
-import {subscribeJSON} from "../internal/pubsub/index.js";
-import {ExchangePerilDirect, PauseKey} from "../internal/routing/routing.js";
+import {publishJson, subscribeJSON} from "../internal/pubsub/index.js";
+import {ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, PauseKey} from "../internal/routing/routing.js";
 import {GameState} from "../internal/gamelogic/gamestate.js";
 import {commandSpawn} from "../internal/gamelogic/spawn.js";
 import {commandMove} from "../internal/gamelogic/move.js";
-import {handlerPause} from "./handlers.js";
+import {handlerMove, handlerPause} from "./handlers.js";
 
 async function main() {
     console.log("Starting Peril client...");
@@ -13,6 +13,7 @@ async function main() {
     const connection = await amqp.connect(connection_string);
     console.log("Connected to RabbitMQ");
     const username = await clientWelcome();
+    const confirmChannel = await connection.createConfirmChannel();
 
     const gameState = new GameState(username);
 
@@ -25,6 +26,15 @@ async function main() {
         handlerPause(gameState),
     );
 
+    await subscribeJSON(
+        connection,
+        ExchangePerilTopic,
+        `${ArmyMovesPrefix}.${username}`,
+        `${ArmyMovesPrefix}.*`,
+        'transient',
+        handlerMove(gameState),
+    )
+
     while (true) {
         const words = await getInput("Peril> ");
         const command = words[0];
@@ -33,7 +43,9 @@ async function main() {
             commandSpawn(gameState, words);
         } else if (command === "move") {
             try {
-                commandMove(gameState, words);
+                const move = commandMove(gameState, words);
+
+                await publishJson(confirmChannel, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, move)
             } catch (err: unknown) {
                 if (err instanceof Error) {
                     console.error("Move failed:", err.message);

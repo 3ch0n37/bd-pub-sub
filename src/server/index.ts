@@ -9,7 +9,7 @@ async function main() {
     const connection = await amqp.connect(connection_string);
     console.log("Connected to RabbitMQ");
     const confirmChannel = await connection.createConfirmChannel();
-    const [gameLogChannel, gameLogQueue] = await declareAndBind(connection, ExchangePerilTopic, GameLogSlug, GameLogSlug + '.*', 'durable');
+    await declareAndBind(connection, ExchangePerilTopic, GameLogSlug, GameLogSlug + '.*', 'durable');
 
     process.on("SIGINT", async () => {
         try {
