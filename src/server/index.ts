@@ -32,12 +32,12 @@ async function main() {
         const args = words.slice(1);
         if (command === "pause") {
             await publishJson(confirmChannel, ExchangePerilDirect, PauseKey, {
-                IsPaused: true,
+                isPaused: true,
             });
             console.log("Game paused");
         } else if (command === "resume") {
             await publishJson(confirmChannel, ExchangePerilDirect, PauseKey, {
-                IsPaused: false,
+                isPaused: false,
             });
             console.log("Game resumed");
         } else if (command === "quit") {

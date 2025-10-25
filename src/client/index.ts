@@ -1,10 +1,18 @@
 import amqp from "amqplib";
 import {clientWelcome, commandStatus, getInput, printClientHelp, printQuit} from "../internal/gamelogic/gamelogic.js";
-import {declareAndBind} from "../internal/pubsub/index.js";
+import {declareAndBind, subscribeJSON} from "../internal/pubsub/index.js";
 import {ExchangePerilDirect, PauseKey} from "../internal/routing/routing.js";
-import {GameState} from "../internal/gamelogic/gamestate.js";
+import {GameState, type PlayingState} from "../internal/gamelogic/gamestate.js";
 import {commandSpawn} from "../internal/gamelogic/spawn.js";
 import {commandMove} from "../internal/gamelogic/move.js";
+import {handlePause} from "../internal/gamelogic/pause.js";
+
+function handlerPause(gs: GameState) {
+    return (ps: PlayingState) => {
+        handlePause(gs, ps);
+        process.stdout.write("Peril> ");
+    }
+}
 
 async function main() {
     console.log("Starting Peril client...");
@@ -12,9 +20,17 @@ async function main() {
     const connection = await amqp.connect(connection_string);
     console.log("Connected to RabbitMQ");
     const username = await clientWelcome();
-    const [channel, queue] = await declareAndBind(connection, ExchangePerilDirect, `pause.${username}`, PauseKey, 'transient');
 
     const gameState = new GameState(username);
+
+    await subscribeJSON(
+        connection,
+        ExchangePerilDirect,
+        `${PauseKey}.${username}`,
+        PauseKey,
+        'transient',
+        handlerPause(gameState),
+    );
 
     while (true) {
         const words = await getInput("Peril> ");
